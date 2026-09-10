@@ -1,0 +1,14 @@
+{
+  "type": "recover",
+  "errorCode": "none",
+  "status": "fresh",
+  "title": "복구됨 — 정상 조회로 돌아왔습니다",
+  "detail": "합성 재생: 다음 실제 조회가 성공하면 상태가 fresh로 돌아오고, 일별 기록이 정확히 한 건 늘어납니다 (아래 표는 시연용으로만 추가되며 실제 저장 파일은 바뀌지 않습니다).",
+  "demoAppendedRecord": {
+    "date": "(다음 날짜, 시연용)",
+    "value": 1345.2,
+    "unit": "KRW per 1 USD",
+    "source_url": "https://open.er-api.com/v6/latest/USD",
+    "note": "실제 저장 파일에는 기록되지 않는 화면 시연용 값입니다"
+  }
+}

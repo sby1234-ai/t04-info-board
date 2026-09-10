@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오늘의 환율판</title>
+<style>
+  :root{
+    --bg:#f7f5f0; --surface:#ffffff; --surface-2:#eee8da; --line:#ddd4bd;
+    --ink:#211f1a; --ink-dim:#6d6656; --accent:#1f6f5c; --accent-ink:#ffffff;
+    --good:#1f6f5c; --bad:#a8402c; --warn:#a8791f; --stale:#8a7a3d;
+    --shadow: 0 1px 2px rgba(30,24,10,.06), 0 10px 28px -14px rgba(30,24,10,.22);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14140f; --surface:#1d1c16; --surface-2:#272419; --line:#38341f;
+      --ink:#f1eee2; --ink-dim:#a7a08b; --accent:#5fb79e; --accent-ink:#0d1a16;
+      --good:#5fb79e; --bad:#e08a73; --warn:#e0b25a; --stale:#d8c273;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 32px -16px rgba(0,0,0,.6);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    padding-inline:16px;
+  }
+  .wrap{max-width:820px; margin:0 auto; padding-block:24px 56px;}
+  h1{font-size:1.4rem; margin:0 0 4px;}
+  .sub{color:var(--ink-dim); font-size:.85rem; margin-bottom:18px;}
+  .mono{font-variant-numeric:tabular-nums; font-family:"JetBrains Mono",ui-monospace,monospace;}
+
+  .sim-banner{
+    background:var(--warn); color:#1a1200; font-weight:700; text-align:center;
+    padding:8px 12px; border-radius:10px; margin-bottom:16px; font-size:.85rem;
+  }
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:20px; box-shadow:var(--shadow); margin-bottom:16px;
+  }
+  .value-row{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .value{font-size:2.6rem; font-weight:700;}
+  .unit{color:var(--ink-dim); font-size:.95rem;}
+  .delta{font-size:1rem; font-weight:600; padding:3px 10px; border-radius:99px; background:var(--surface-2);}
+  .delta.up{color:var(--bad);}
+  .delta.down{color:var(--good);}
+  .delta.flat{color:var(--ink-dim);}
+
+  .meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:16px; font-size:.82rem;}
+  .meta dt{color:var(--ink-dim); margin-bottom:2px;}
+  .meta dd{margin:0; word-break:break-all;}
+  .meta a{color:var(--accent);}
+
+  .banner{
+    border-radius:12px; padding:14px 16px; margin-bottom:16px; border:1px solid var(--line);
+  }
+  .banner.error{background:color-mix(in srgb, var(--bad) 12%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 40%, var(--line));}
+  .banner.recover{background:color-mix(in srgb, var(--good) 14%, var(--surface)); border-color:color-mix(in srgb, var(--good) 40%, var(--line));}
+  .banner h3{margin:0 0 4px; font-size:.95rem;}
+  .banner p{margin:0 0 6px; font-size:.85rem; color:var(--ink-dim);}
+  .banner .action{font-size:.85rem; font-weight:600;}
+  .badge{display:inline-block; font-size:.72rem; padding:2px 8px; border-radius:99px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-dim);}
+  .badge.stale{background:color-mix(in srgb, var(--stale) 22%, var(--surface)); color:var(--stale); border-color:transparent; font-weight:600;}
+
+  button{
+    border:1px solid var(--line); background:var(--surface-2); color:var(--ink);
+    border-radius:8px; padding:7px 12px; font-size:.82rem; cursor:pointer; font-weight:600;
+  }
+  button:hover{border-color:var(--accent);}
+
+  table{width:100%; border-collapse:collapse; font-size:.82rem;}
+  th,td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--line);}
+  th{color:var(--ink-dim); font-weight:600;}
+  .demo-row{opacity:.75; font-style:italic;}
+
+  details summary{cursor:pointer; color:var(--accent); font-size:.82rem; margin-top:4px;}
+  pre{background:var(--surface-2); border-radius:8px; padding:10px; overflow-x:auto; font-size:.76rem;}
+
+  footer{color:var(--ink-dim); font-size:.78rem; margin-top:24px; line-height:1.7;}
+  footer a{color:var(--accent);}
+  .sim-links a{margin-right:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>오늘의 환율판</h1>
+  <div class="sub">USD → KRW 환율을 매일 한 번, 자동으로 기록합니다 (기준 시간대: Asia/Seoul)</div>
+
+  <div id="simBanner" class="sim-banner" hidden></div>
+
+  <div class="card">
+    <div class="value-row">
+      <span class="value mono" id="valueEl">—</span>
+      <span class="unit" id="unitEl"></span>
+      <span class="delta" id="deltaEl" hidden></span>
+    </div>
+    <dl class="meta">
+      <div><dt>출처</dt><dd id="sourceEl">—</dd></div>
+      <div><dt>출처 관측 시각 (KST)</dt><dd class="mono" id="sourceTimeEl">—</dd></div>
+      <div><dt>조회 시각 (KST)</dt><dd class="mono" id="fetchTimeEl">—</dd></div>
+      <div><dt>기준 시간대</dt><dd>Asia/Seoul (KST, UTC+9)</dd></div>
+    </dl>
+  </div>
+
+  <div id="statusBanner"></div>
+
+  <div class="card">
+    <strong>일별 기록</strong>
+    <table id="dailyTable">
+      <thead><tr><th>날짜(KST)</th><th>값</th><th>출처 관측 시각(UTC)</th><th>조회 시각(UTC)</th></tr></thead>
+      <tbody id="dailyBody"><tr><td colspan="4" style="color:var(--ink-dim)">불러오는 중…</td></tr></tbody>
+    </table>
+    <details>
+      <summary>원자료(raw) 확인 — data/daily.json · data/state.json</summary>
+      <pre id="rawEl">불러오는 중…</pre>
+    </details>
+  </div>
+
+  <footer>
+    합성 실패 재생(그레이딩용, 실제 데이터에 영향 없음):
+    <div class="sim-links">
+      <a href="?sim=slow-response">느린 응답</a>
+      <a href="?sim=unauthorized-401">401</a>
+      <a href="?sim=forbidden-403">403</a>
+      <a href="?sim=rate-limited-429">호출제한</a>
+      <a href="?sim=offline">오프라인</a>
+      <a href="?sim=schema-changed">형식변경</a>
+      <a href="?sim=recover-success">복구</a>
+      · <a href="?">실제 화면으로</a>
+    </div>
+    소스: <a id="repoLink" href="#">GitHub 저장소</a> · 매일 GitHub Actions가 자동으로 값을 가져와 기록합니다.
+  </footer>
+</div>
+
+<script type="module">
+import { computeChangeFromRecords, staleMinutes, SOURCE_NAME, SOURCE_URL, UNIT } from "./scripts/lib.mjs";
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const sim = params.get("sim");
+
+function fmtKst(iso){
+  if(!iso) return "—";
+  try{
+    return new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+    }).format(new Date(iso)) + " KST";
+  }catch(e){ return iso; }
+}
+
+function renderValue(record){
+  $("valueEl").textContent = typeof record.value === "number" ? record.value.toLocaleString("ko-KR", {maximumFractionDigits:2}) : "—";
+  $("unitEl").textContent = record.unit || UNIT;
+  $("sourceEl").innerHTML = '<a href="' + (record.source_url||SOURCE_URL) + '" target="_blank" rel="noopener">' + (record.source_name||SOURCE_NAME) + '</a>';
+  $("sourceTimeEl").textContent = fmtKst(record.source_observed_at);
+  $("fetchTimeEl").textContent = fmtKst(record.fetched_at);
+}
+
+function renderDelta(change){
+  const el = $("deltaEl");
+  if(!change){ el.hidden = true; return; }
+  el.hidden = false;
+  const sign = change.diff > 0 ? "+" : "";
+  const cls = change.diff > 0 ? "up" : change.diff < 0 ? "down" : "flat";
+  el.className = "delta " + cls;
+  el.textContent = "어제 대비 " + sign + change.diff.toFixed(2) + " (" + sign + change.pct.toFixed(2) + "%)";
+}
+
+function renderDailyTable(records, demoRow){
+  const body = $("dailyBody");
+  body.innerHTML = "";
+  const rows = [...records].sort((a,b)=> a.date < b.date ? 1 : -1);
+  if(rows.length === 0 && !demoRow){
+    body.innerHTML = '<tr><td colspan="4" style="color:var(--ink-dim)">아직 기록이 없습니다 (첫 자동 조회 전)</td></tr>';
+  }
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>"+r.date+"</td><td class='mono'>"+r.value.toLocaleString("ko-KR",{maximumFractionDigits:2})+"</td>"
+      + "<td class='mono'>"+(r.source_observed_at||"").replace("T"," ").replace("Z"," UTC")+"</td>"
+      + "<td class='mono'>"+(r.fetched_at||"").replace("T"," ").replace("Z"," UTC")+"</td>";
+    body.appendChild(tr);
+  });
+  if(demoRow){
+    const tr = document.createElement("tr");
+    tr.className = "demo-row";
+    tr.innerHTML = "<td>"+demoRow.date+" (시연)</td><td class='mono'>"+demoRow.value+"</td><td colspan='2'>합성 테스트 — 저장되지 않음</td>";
+    body.appendChild(tr);
+  }
+}
+
+function renderErrorBanner(fixture, lastGood){
+  const box = $("statusBanner");
+  const staleMin = lastGood ? staleMinutes(lastGood.fetched_at) : null;
+  box.innerHTML = '<div class="banner error">'
+    + '<h3>⚠ ' + fixture.title + '</h3>'
+    + '<p>' + fixture.detail + '</p>'
+    + '<p class="action">다음 행동: ' + fixture.nextAction + '</p>'
+    + (lastGood
+        ? '<p>마지막 정상값: <strong class="mono">' + lastGood.value.toLocaleString("ko-KR",{maximumFractionDigits:2}) + '</strong> ' + lastGood.unit
+          + ' <span class="badge stale">오래된 값 · ' + staleMin + '분 전</span></p>'
+        : '<p>아직 저장된 정상값이 없습니다 (첫 조회 전).</p>')
+    + '<button id="retryBtn" type="button">다시 시도</button>'
+    + (fixture.rawPreview ? '<details style="margin-top:8px"><summary>받은 원본 응답(예시)</summary><pre>' + JSON.stringify(fixture.rawPreview, null, 2) + '</pre></details>' : '')
+    + '</div>';
+  $("retryBtn").addEventListener("click", () => location.reload());
+}
+
+function renderRecoverBanner(fixture){
+  const box = $("statusBanner");
+  box.innerHTML = '<div class="banner recover">'
+    + '<h3>✓ ' + fixture.title + '</h3>'
+    + '<p>' + fixture.detail + '</p>'
+    + '<p><span class="badge">status: fresh</span> <span class="badge">error_code: none</span></p>'
+    + '</div>';
+}
+
+async function loadJson(path){
+  const res = await fetch(path, { cache: "no-store" });
+  if(!res.ok) throw new Error("failed to load " + path);
+  return res.json();
+}
+
+async function runSimMode(name){
+  $("simBanner").hidden = false;
+  $("simBanner").textContent = "🧪 합성 테스트 모드 (" + name + ") — 실제 데이터가 아닙니다. 진짜 화면은 상단 \"실제 화면으로\"를 누르세요.";
+
+  let state = { lastGood: null };
+  try{ state = await loadJson("data/state.json"); }catch(e){}
+
+  const fixture = await loadJson("fixtures/" + name + ".json");
+
+  if(fixture.type === "slow"){
+    $("statusBanner").innerHTML = '<div class="banner"><p>불러오는 중… (합성 지연 재생 중)</p></div>';
+    await new Promise(r => setTimeout(r, Math.min(fixture.delayMs, 4000)));
+    renderErrorBanner(fixture, state.lastGood);
+  } else if(fixture.type === "recover"){
+    renderRecoverBanner(fixture);
+    if(state.lastGood) renderValue(state.lastGood);
+    let records = [];
+    try{ records = (await loadJson("data/daily.json")).records || []; }catch(e){}
+    renderDailyTable(records, fixture.demoAppendedRecord);
+    return;
+  } else {
+    renderErrorBanner(fixture, state.lastGood);
+  }
+
+  if(state.lastGood) renderValue(state.lastGood);
+  let records = [];
+  try{ records = (await loadJson("data/daily.json")).records || []; }catch(e){}
+  renderDailyTable(records);
+  $("rawEl").textContent = "(합성 테스트 모드에서는 실제 원자료 대신 마지막 정상값을 그대로 보여줍니다)\n\n" + JSON.stringify({state, fixture}, null, 2);
+}
+
+async function runRealMode(){
+  const [daily, state] = await Promise.all([
+    loadJson("data/daily.json").catch(()=>({records:[]})),
+    loadJson("data/state.json").catch(()=>({lastGood:null,lastError:null})),
+  ]);
+  const records = daily.records || [];
+
+  if(records.length === 0 && !state.lastGood){
+    $("statusBanner").innerHTML = '<div class="banner"><p>아직 첫 자동 조회가 실행되지 않았습니다. GitHub Actions에서 "Run workflow"를 눌러 첫 기록을 만들어보세요.</p></div>';
+  } else if(state.lastError){
+    renderErrorBannerFromState(state);
+  } else {
+    $("statusBanner").innerHTML = "";
+  }
+
+  const latest = state.lastGood || records[records.length - 1];
+  if(latest) renderValue(latest);
+  renderDelta(computeChangeFromRecords(records));
+  renderDailyTable(records);
+  $("rawEl").textContent = JSON.stringify({ daily, state }, null, 2);
+}
+
+function renderErrorBannerFromState(state){
+  const err = state.lastError;
+  const staleMin = state.lastGood ? staleMinutes(state.lastGood.fetched_at) : null;
+  $("statusBanner").innerHTML = '<div class="banner error">'
+    + '<h3>⚠ 최근 자동 조회 실패 (' + err.type + ')</h3>'
+    + '<p>' + err.message + ' · ' + fmtKst(err.at) + '</p>'
+    + (state.lastGood
+        ? '<p>마지막 정상값: <strong class="mono">' + state.lastGood.value.toLocaleString("ko-KR",{maximumFractionDigits:2}) + '</strong> ' + state.lastGood.unit
+          + ' <span class="badge stale">오래된 값 · ' + staleMin + '분 전</span></p>'
+        : '<p>아직 저장된 정상값이 없습니다.</p>')
+    + '</div>';
+}
+
+$("repoLink").href = "https://github.com/sby1234-ai/t04-info-board";
+
+if(sim){
+  runSimMode(sim).catch(e => { $("statusBanner").innerHTML = '<div class="banner error"><p>테스트 fixture를 불러오지 못했습니다: ' + e.message + '</p></div>'; });
+} else {
+  runRealMode().catch(e => { $("statusBanner").innerHTML = '<div class="banner error"><p>데이터를 불러오지 못했습니다: ' + e.message + '</p></div>'; });
+}
+</script>
+</body>
+</html>

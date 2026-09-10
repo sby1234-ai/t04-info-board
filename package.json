@@ -1,0 +1,16 @@
+{
+  "name": "t04-real-information-board",
+  "version": "1.0.0",
+  "private": true,
+  "description": "오늘의 환율판 — USD/KRW 실시간 정보판, 매일 GitHub Actions로 자동 기록 (과제 4)",
+  "type": "module",
+  "scripts": {
+    "test:logic": "node scripts/test-logic.mjs",
+    "test:ui": "node test/run-tests.cjs",
+    "fetch": "node scripts/fetch-and-record.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  },
+  "license": "MIT"
+}

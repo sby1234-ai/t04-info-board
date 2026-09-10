@@ -1,0 +1,8 @@
+{
+  "type": "http_error",
+  "httpStatus": 403,
+  "errorCode": "auth_403",
+  "title": "출처가 접근을 거절했습니다 (403)",
+  "detail": "출처 API가 이 요청을 처리할 권한이 없다고 응답했습니다.",
+  "nextAction": "출처 서비스 상태 페이지를 확인하거나 잠시 후 다시 시도하세요."
+}

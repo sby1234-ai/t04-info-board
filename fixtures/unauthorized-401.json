@@ -1,0 +1,8 @@
+{
+  "type": "http_error",
+  "httpStatus": 401,
+  "errorCode": "auth_401",
+  "title": "출처가 인증을 거절했습니다 (401)",
+  "detail": "출처 API가 요청을 인증하지 못했다고 응답했습니다.",
+  "nextAction": "일시적인 문제일 수 있습니다. 몇 분 후 다시 시도해보세요."
+}
