@@ -1,0 +1,40 @@
+name: Daily exchange-rate fetch
+
+on:
+  schedule:
+    # 00:10 UTC = 09:10 KST — comfortably inside the KST calendar day, well
+    # after local midnight, so the record always lands on the intended date.
+    - cron: "10 0 * * *"
+  workflow_dispatch: {}   # lets a person trigger a run on demand from the Actions tab
+
+permissions:
+  contents: write   # needed so this workflow can commit the updated data/*.json back
+
+concurrency:
+  group: daily-fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch real value and update data files
+        run: node scripts/fetch-and-record.mjs
+
+      - name: Commit updated data if changed
+        run: |
+          git config user.name "daily-fetch-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- data/; then
+            echo "No data changes to commit."
+          else
+            git add data/daily.json data/state.json
+            git commit -m "chore: daily fetch $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
