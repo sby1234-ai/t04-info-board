@@ -94,3 +94,36 @@ export function staleMinutes(lastGoodFetchedAtIso, now = new Date()) {
   const ms = now.getTime() - new Date(lastGoodFetchedAtIso).getTime();
   return Math.max(0, Math.round(ms / 60000));
 }
+
+/**
+ * 과제5 — "최근 통계 카드"용 순수 로직. 저장된 일별 records에서 최근 최대
+ * `maxDays`건(기본 7)의 최고값·최저값·평균값을 계산한다. 캐시된 값을 쓰지
+ * 않고 매번 raw records에서 다시 계산하는 것이 목적이므로, 이 함수는 상태를
+ * 갖지 않는다. 같은 날짜가 중복으로 들어오면 마지막 항목만 인정한다(방어적
+ * dedupe — 정상 흐름에서는 mergeDailyRecord가 이미 하루 1건으로 정리하지만,
+ * 이 함수 자체는 그 보장에 기대지 않는다).
+ *
+ * @param {{date: string, value: number}[]} records
+ * @param {{maxDays?: number}} [opts]
+ * @returns {{count:number,min:number,max:number,avg:number}|null}
+ */
+export function computeRecentStats(records, { maxDays = 7 } = {}) {
+  if (!records || records.length === 0) return null;
+
+  // 방어적 dedupe: 같은 date가 여러 번 있으면 마지막 값이 이긴다.
+  const byDate = new Map();
+  for (const r of records) {
+    byDate.set(r.date, r.value);
+  }
+  const sortedDates = [...byDate.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const recentDates = sortedDates.slice(Math.max(0, sortedDates.length - maxDays));
+  const values = recentDates.map((d) => byDate.get(d));
+
+  const count = values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const avgRaw = values.reduce((sum, v) => sum + v, 0) / count;
+  const avg = Math.round(avgRaw * 100) / 100;
+
+  return { count, min, max, avg };
+}
