@@ -52,6 +52,11 @@
   .meta dd{margin:0; word-break:break-all;}
   .meta a{color:var(--accent);}
 
+  .stats-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-top:12px;}
+  .stat-box{background:var(--surface-2); padding:12px; border-radius:10px;}
+  .stat-label{font-size:.78rem; color:var(--ink-dim); margin-bottom:4px;}
+  .stat-value{font-size:1.2rem; font-weight:700;}
+
   .banner{
     border-radius:12px; padding:14px 16px; margin-bottom:16px; border:1px solid var(--line);
   }
@@ -103,6 +108,8 @@
     </dl>
   </div>
 
+  <div id="recent-stats"></div>
+
   <div id="statusBanner"></div>
 
   <div class="card">
@@ -134,7 +141,7 @@
 </div>
 
 <script type="module">
-import { computeChangeFromRecords, staleMinutes, SOURCE_NAME, SOURCE_URL, UNIT } from "./scripts/lib.mjs";
+import { computeChangeFromRecords, computeRecentStats, staleMinutes, SOURCE_NAME, SOURCE_URL, UNIT } from "./scripts/lib.mjs";
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -166,6 +173,37 @@ function renderDelta(change){
   const cls = change.diff > 0 ? "up" : change.diff < 0 ? "down" : "flat";
   el.className = "delta " + cls;
   el.textContent = "어제 대비 " + sign + change.diff.toFixed(2) + " (" + sign + change.pct.toFixed(2) + "%)";
+}
+
+function renderRecentStatsCard(records){
+  const target = $("recent-stats");
+  if(!target) return;
+  
+  const stats = computeRecentStats(records, { maxDays: 7 });
+  if(!stats || stats.count === 0){
+    target.innerHTML = "";
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="card stats-card" id="statsCard">
+      <strong id="statsTitle">최근 ${stats.count}일 기준 통계</strong>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">최고</div>
+          <div class="stat-value mono" id="statMax">${stats.max.toLocaleString("ko-KR", {maximumFractionDigits:2})}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">최저</div>
+          <div class="stat-value mono" id="statMin">${stats.min.toLocaleString("ko-KR", {maximumFractionDigits:2})}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">평균</div>
+          <div class="stat-value mono" id="statAvg">${stats.avg.toLocaleString("ko-KR", {maximumFractionDigits:2})}</div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderDailyTable(records, demoRow){
@@ -241,6 +279,7 @@ async function runSimMode(name){
     let records = [];
     try{ records = (await loadJson("data/daily.json")).records || []; }catch(e){}
     renderDailyTable(records, fixture.demoAppendedRecord);
+    renderRecentStatsCard(records);
     return;
   } else {
     renderErrorBanner(fixture, state.lastGood);
@@ -250,51 +289,43 @@ async function runSimMode(name){
   let records = [];
   try{ records = (await loadJson("data/daily.json")).records || []; }catch(e){}
   renderDailyTable(records);
-  $("rawEl").textContent = "(합성 테스트 모드에서는 실제 원자료 대신 마지막 정상값을 그대로 보여줍니다)\n\n" + JSON.stringify({state, fixture}, null, 2);
+  renderRecentStatsCard(records);
+  $("rawEl").textContent = "(합성 테스트 모드에서는 실제 원자료 대신 마지막 정상값을 그대로 보여줍니다)\n\n" + JSON.stringify(state, null, 2);
 }
 
-async function runRealMode(){
-  const [daily, state] = await Promise.all([
-    loadJson("data/daily.json").catch(()=>({records:[]})),
-    loadJson("data/state.json").catch(()=>({lastGood:null,lastError:null})),
-  ]);
-  const records = daily.records || [];
-
-  if(records.length === 0 && !state.lastGood){
-    $("statusBanner").innerHTML = '<div class="banner"><p>아직 첫 자동 조회가 실행되지 않았습니다. GitHub Actions에서 "Run workflow"를 눌러 첫 기록을 만들어보세요.</p></div>';
-  } else if(state.lastError){
-    renderErrorBannerFromState(state);
-  } else {
-    $("statusBanner").innerHTML = "";
+async function init(){
+  if(sim){
+    await runSimMode(sim);
+    return;
   }
 
-  const latest = state.lastGood || records[records.length - 1];
-  if(latest) renderValue(latest);
-  renderDelta(computeChangeFromRecords(records));
+  let daily = { records: [] };
+  let state = { lastGood: null, lastError: null };
+
+  try { daily = await loadJson("data/daily.json"); } catch(e){}
+  try { state = await loadJson("data/state.json"); } catch(e){}
+
+  const records = daily.records || [];
+
+  if(state.lastError){
+    renderErrorBanner(state.lastError, state.lastGood);
+  }
+
+  if(state.lastGood){
+    renderValue(state.lastGood);
+    const change = computeChangeFromRecords(records);
+    renderDelta(change);
+  } else if(!state.lastError && records.length === 0){
+    $("statusBanner").innerHTML = '<div class="banner"><p>아직 첫 자동 조회가 실행되지 않았습니다. GitHub Actions에서 "Run workflow"를 눌러 첫 기록을 만들어보세요.</p></div>';
+  }
+
   renderDailyTable(records);
+  renderRecentStatsCard(records);
+
   $("rawEl").textContent = JSON.stringify({ daily, state }, null, 2);
 }
 
-function renderErrorBannerFromState(state){
-  const err = state.lastError;
-  const staleMin = state.lastGood ? staleMinutes(state.lastGood.fetched_at) : null;
-  $("statusBanner").innerHTML = '<div class="banner error">'
-    + '<h3>⚠ 최근 자동 조회 실패 (' + err.type + ')</h3>'
-    + '<p>' + err.message + ' · ' + fmtKst(err.at) + '</p>'
-    + (state.lastGood
-        ? '<p>마지막 정상값: <strong class="mono">' + state.lastGood.value.toLocaleString("ko-KR",{maximumFractionDigits:2}) + '</strong> ' + state.lastGood.unit
-          + ' <span class="badge stale">오래된 값 · ' + staleMin + '분 전</span></p>'
-        : '<p>아직 저장된 정상값이 없습니다.</p>')
-    + '</div>';
-}
-
-$("repoLink").href = "https://github.com/sby1234-ai/t04-info-board";
-
-if(sim){
-  runSimMode(sim).catch(e => { $("statusBanner").innerHTML = '<div class="banner error"><p>테스트 fixture를 불러오지 못했습니다: ' + e.message + '</p></div>'; });
-} else {
-  runRealMode().catch(e => { $("statusBanner").innerHTML = '<div class="banner error"><p>데이터를 불러오지 못했습니다: ' + e.message + '</p></div>'; });
-}
+init();
 </script>
 </body>
 </html>
