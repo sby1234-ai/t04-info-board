@@ -609,6 +609,16 @@
       "source_observed_at": "2026-11-09T00:02:31.000Z",
       "fetched_at": "2026-11-09T06:08:49.790Z",
       "timezone": "Asia/Seoul"
+    },
+    {
+      "date": "2026-11-10",
+      "value": 1344.786283,
+      "unit": "KRW per 1 USD",
+      "source_url": "https://open.er-api.com/v6/latest/USD",
+      "source_name": "exchangerate-api.com (open.er-api.com, no API key)",
+      "source_observed_at": "2026-11-10T00:02:31.000Z",
+      "fetched_at": "2026-11-10T07:07:25.397Z",
+      "timezone": "Asia/Seoul"
     }
   ]
 }
