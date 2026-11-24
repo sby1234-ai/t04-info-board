@@ -1,13 +1,13 @@
 {
   "lastGood": {
-    "value": 1343.597019,
+    "value": 1343.513843,
     "unit": "KRW per 1 USD",
     "source_url": "https://open.er-api.com/v6/latest/USD",
     "source_name": "exchangerate-api.com (open.er-api.com, no API key)",
-    "source_observed_at": "2026-11-23T00:02:32.000Z",
-    "fetched_at": "2026-11-23T07:23:44.972Z",
+    "source_observed_at": "2026-11-24T00:02:31.000Z",
+    "fetched_at": "2026-11-24T09:44:00.142Z",
     "timezone": "Asia/Seoul"
   },
   "lastError": null,
-  "lastCheckedAt": "2026-11-23T07:23:44.972Z"
+  "lastCheckedAt": "2026-11-24T09:44:00.142Z"
 }
